@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Модель Плоской Земли с Куполом</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            overflow: hidden;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #controls-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            max-width: 320px;
+            z-index: 100;
+        }
+
+        #controls-panel h2 {
+            margin: 0 0 15px 0;
+            color: #1e3c72;
+            font-size: 18px;
+            border-bottom: 2px solid #2a5298;
+            padding-bottom: 8px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+            font-size: 13px;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #2a5298;
+            cursor: pointer;
+        }
+
+        .control-group input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #2a5298;
+            cursor: pointer;
+            border: none;
+        }
+
+        .value-display {
+            display: inline-block;
+            margin-left: 10px;
+            color: #2a5298;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            margin-right: 8px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            margin: 0;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        #info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            font-size: 12px;
+            z-index: 100;
+        }
+
+        #info-panel h3 {
+            margin: 0 0 10px 0;
+            color: #1e3c72;
+            font-size: 14px;
+        }
+
+        .info-row {
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .info-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .info-value {
+            color: #2a5298;
+            font-weight: bold;
+        }
+
+        .eclipse-warning {
+            background: #ffebee;
+            color: #c62828;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            z-index: 1000;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid white;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        button {
+            background: #2a5298;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            margin: 5px 5px 5px 0;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #1e3c72;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="spinner"></div>
+        Загрузка модели...
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div id="controls-panel">
+        <h2>⚙️ Управление</h2>
+
+        <div class="control-group">
+            <label>
+                День года: <span class="value-display" id="day-value">172</span> (21 июня)
+            </label>
+            <input type="range" id="day-slider" min="1" max="365" value="172" step="1">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Час: <span class="value-display" id="hour-value">12</span>:00
+            </label>
+            <input type="range" id="hour-slider" min="0" max="23" value="12" step="1">
+        </div>
+
+        <div class="control-group">
+            <label>
+                День луны: <span class="value-display" id="moon-day-value">15</span> (полнолуние)
+            </label>
+            <input type="range" id="moon-day-slider" min="0" max="29" value="15" step="1">
+        </div>
+
+        <div class="control-group">
+            <label style="margin-bottom: 10px;">Видимость объектов:</label>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="show-earth" checked>
+                <label for="show-earth">Земля</label>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="show-atmosphere" checked>
+                <label for="show-atmosphere">Атмосфера</label>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="show-dome" checked>
+                <label for="show-dome">Купол</label>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="show-sun" checked>
+                <label for="show-sun">Солнце</label>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="show-moon" checked>
+                <label for="show-moon">Луна</label>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="show-shadow" checked>
+                <label for="show-shadow">Тень</label>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="show-grid" checked>
+                <label for="show-grid">Сетка</label>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <button id="reset-camera">🔄 Сброс камеры</button>
+            <button id="animate-toggle">▶️ Анимация</button>
+        </div>
+    </div>
+
+    <div id="info-panel">
+        <h3>📊 Информация</h3>
+        <div class="info-row">
+            <span class="info-label">Солнце X:</span>
+            <span class="info-value" id="sun-x">-14000</span> км
+        </div>
+        <div class="info-row">
+            <span class="info-label">Солнце Y:</span>
+            <span class="info-value" id="sun-y">0</span> км
+        </div>
+        <div class="info-row">
+            <span class="info-label">Луна X:</span>
+            <span class="info-value" id="moon-x">9880</span> км
+        </div>
+        <div class="info-row">
+            <span class="info-label">Луна Y:</span>
+            <span class="info-value" id="moon-y">527</span> км
+        </div>
+        <div class="info-row">
+            <span class="info-label">Угловая разность:</span>
+            <span class="info-value" id="angle-diff">-177</span>°
+        </div>
+        <div id="eclipse-status"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
