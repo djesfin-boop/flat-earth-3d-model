@@ -5,9 +5,7 @@
 
 // Константы модели (в километрах)
 const EARTH_RADIUS = 20000;           // Радиус плоского диска Земли
-const DOME_RADIUS = 20000;             // Радиус купола (полусфера)
-const DOME_MAX_HEIGHT = 20000;         // Максимальная высота купола
-const MAGNETIC_ROCK_HEIGHT = 60;       // Высота магнитной скалы
+const DOME_RADIUS = 20396;             // Радиус купола (сфера с высотой 4000 км)const DOME_MAX_HEIGHT = 4000;         // Максимальная высота купола (по триангуляции затмений)const MAGNETIC_ROCK_HEIGHT = 60;       // Высота магнитной скалы
 const MAGNETIC_ROCK_DIAMETER = 180;    // Диаметр магнитной скалы
 const ATMOSPHERE_HEIGHT = 50;          // Высота слоя атмосферы
 const SUN_DIAMETER = 37;               // Диаметр Солнца
@@ -188,8 +186,7 @@ function createAtmosphere() {
 }
 
 function createDome() {
-    // ПРАВИЛЬНАЯ полусфера купола радиусом 20000 км
-    const domeGeometry = new THREE.SphereGeometry(
+    // Купол с высотой 4000 км (расчёт по триангуляции затмений)    const domeGeometry = new THREE.SphereGeometry(
         DOME_RADIUS * SCALE_FACTOR,
         64,
         32,
@@ -208,7 +205,7 @@ function createDome() {
         depthWrite: false
     });
     domeMesh = new THREE.Mesh(domeGeometry, domeMaterial);
-    // НЕ масштабируем по Y - оставляем правильную полусферу
+        domeMesh.scale.y = DOME_MAX_HEIGHT / DOME_RADIUS;  // Масштабирование для правильной высоты 4000 км
     scene.add(domeMesh);
 }
 
