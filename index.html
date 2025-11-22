@@ -307,3 +307,251 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script></html>
+<script>
+// Основной код Three.js
+let scene, camera, renderer, controls;
+let earth, atmosphere, dome, sun, moon, shadowPlane, gridHelper;
+let animationId;
+let isAnimating = false;
+
+// Константы
+const EARTH_RADIUS = 20000;
+const DOME_RADIUS = 30000;
+const SUN_ORBIT_RADIUS = 14000;
+const MOON_ORBIT_RADIUS = 10000;
+const SUN_HEIGHT = 4000;
+const MOON_HEIGHT = 3000;
+
+// Инициализация сцены
+function init() {
+    // Создание сцены
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1e3c72);
+    
+    // Камера
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 100000);
+    camera.position.set(0, 35000, 35000);
+    camera.lookAt(0, 0, 0);
+    
+    // Рендерер
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+    
+    // Контроллы OrbitControls
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.minDistance = 5000;
+    controls.maxDistance = 80000;
+    
+    // Освещение
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+    scene.add(ambientLight);
+    
+    createObjects();
+    setupControls();
+    updateScene();
+    
+    document.getElementById('loading').style.display = 'none';
+    animate();
+}
+
+// Создание объектов
+function createObjects() {
+    // Земля (диск)
+    const earthGeometry = new THREE.CylinderGeometry(EARTH_RADIUS, EARTH_RADIUS, 500, 64);
+    const earthMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x228b22,
+        shininess: 10
+    });
+    earth = new THREE.Mesh(earthGeometry, earthMaterial);
+    earth.receiveShadow = true;
+    scene.add(earth);
+    
+    // Атмосфера
+    const atmosphereGeometry = new THREE.SphereGeometry(EARTH_RADIUS + 2000, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2);
+    const atmosphereMaterial = new THREE.MeshPhongMaterial({
+        color: 0x87ceeb,
+        transparent: true,
+        opacity: 0.2,
+        side: THREE.DoubleSide
+    });
+    atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+    scene.add(atmosphere);
+    
+    // Купол
+    const domeGeometry = new THREE.SphereGeometry(DOME_RADIUS, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2);
+    const domeMaterial = new THREE.MeshPhongMaterial({
+        color: 0xadd8e6,
+        transparent: true,
+        opacity: 0.1,
+        side: THREE.BackSide
+    });
+    dome = new THREE.Mesh(domeGeometry, domeMaterial);
+    scene.add(dome);
+    
+    // Солнце
+    const sunGeometry = new THREE.SphereGeometry(700, 32, 32);
+    const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    sun = new THREE.Mesh(sunGeometry, sunMaterial);
+    sun.castShadow = true;
+    scene.add(sun);
+    
+    const sunLight = new THREE.PointLight(0xffffff, 1.5, 50000);
+    sun.add(sunLight);
+    
+    // Луна
+    const moonGeometry = new THREE.SphereGeometry(400, 32, 32);
+    const moonMaterial = new THREE.MeshPhongMaterial({ color: 0xaaaaaa });
+    moon = new THREE.Mesh(moonGeometry, moonMaterial);
+    moon.castShadow = true;
+    scene.add(moon);
+    
+    // Тень
+    const shadowGeometry = new THREE.PlaneGeometry(EARTH_RADIUS * 2, EARTH_RADIUS * 2);
+    const shadowMaterial = new THREE.ShadowMaterial({ opacity: 0.3 });
+    shadowPlane = new THREE.Mesh(shadowGeometry, shadowMaterial);
+    shadowPlane.rotation.x = -Math.PI / 2;
+    shadowPlane.position.y = 250;
+    shadowPlane.receiveShadow = true;
+    scene.add(shadowPlane);
+    
+    // Сетка
+    gridHelper = new THREE.GridHelper(EARTH_RADIUS * 2, 50, 0x444444, 0x222222);
+    gridHelper.position.y = 250;
+    scene.add(gridHelper);
+}
+
+// Обновление позиций объектов
+function updateScene() {
+    const dayOfYear = parseInt(document.getElementById('day-slider').value);
+    const hour = parseInt(document.getElementById('hour-slider').value);
+    const moonDay = parseInt(document.getElementById('moon-day-slider').value);
+    
+    // Позиция Солнца
+    const sunAngle = (dayOfYear / 365) * Math.PI * 2;
+    sun.position.x = Math.cos(sunAngle) * SUN_ORBIT_RADIUS;
+    sun.position.z = Math.sin(sunAngle) * SUN_ORBIT_RADIUS;
+    sun.position.y = SUN_HEIGHT;
+    
+    // Позиция Луны
+    const moonAngle = (moonDay / 29.5) * Math.PI * 2;
+    moon.position.x = Math.cos(moonAngle) * MOON_ORBIT_RADIUS;
+    moon.position.z = Math.sin(moonAngle) * MOON_ORBIT_RADIUS;
+    moon.position.y = MOON_HEIGHT;
+    
+    updateInfo();
+}
+
+// Обновление информационной панели
+function updateInfo() {
+    document.getElementById('sun-x').textContent = Math.round(sun.position.x);
+    document.getElementById('sun-y').textContent = Math.round(sun.position.z);
+    document.getElementById('moon-x').textContent = Math.round(moon.position.x);
+    document.getElementById('moon-y').textContent = Math.round(moon.position.z);
+    
+    const sunAngle = Math.atan2(sun.position.z, sun.position.x) * 180 / Math.PI;
+    const moonAngle = Math.atan2(moon.position.z, moon.position.x) * 180 / Math.PI;
+    const angleDiff = Math.round(((moonAngle - sunAngle + 540) % 360) - 180);
+    
+    document.getElementById('angle-diff').textContent = angleDiff;
+    
+    const eclipseStatus = document.getElementById('eclipse-status');
+    if (Math.abs(angleDiff) < 10) {
+        eclipseStatus.innerHTML = '<div class="eclipse-warning">⚠️ СОЛНЕЧНОЕ ЗАТМЕНИЕ!</div>';
+    } else if (Math.abs(Math.abs(angleDiff) - 180) < 10) {
+        eclipseStatus.innerHTML = '<div class="eclipse-warning">🌕 ЛУННОЕ ЗАТМЕНИЕ!</div>';
+    } else {
+        eclipseStatus.innerHTML = '';
+    }
+}
+
+// Настройка контроллов
+function setupControls() {
+    document.getElementById('day-slider').addEventListener('input', function(e) {
+        document.getElementById('day-value').textContent = e.target.value;
+        updateScene();
+    });
+    
+    document.getElementById('hour-slider').addEventListener('input', function(e) {
+        document.getElementById('hour-value').textContent = e.target.value;
+        updateScene();
+    });
+    
+    document.getElementById('moon-day-slider').addEventListener('input', function(e) {
+        document.getElementById('moon-day-value').textContent = e.target.value;
+        updateScene();
+    });
+    
+    document.getElementById('show-earth').addEventListener('change', function(e) {
+        earth.visible = e.target.checked;
+    });
+    
+    document.getElementById('show-atmosphere').addEventListener('change', function(e) {
+        atmosphere.visible = e.target.checked;
+    });
+    
+    document.getElementById('show-dome').addEventListener('change', function(e) {
+        dome.visible = e.target.checked;
+    });
+    
+    document.getElementById('show-sun').addEventListener('change', function(e) {
+        sun.visible = e.target.checked;
+    });
+    
+    document.getElementById('show-moon').addEventListener('change', function(e) {
+        moon.visible = e.target.checked;
+    });
+    
+    document.getElementById('show-shadow').addEventListener('change', function(e) {
+        shadowPlane.visible = e.target.checked;
+    });
+    
+    document.getElementById('show-grid').addEventListener('change', function(e) {
+        gridHelper.visible = e.target.checked;
+    });
+    
+    document.getElementById('reset-camera').addEventListener('click', function() {
+        camera.position.set(0, 35000, 35000);
+        camera.lookAt(0, 0, 0);
+        controls.reset();
+    });
+    
+    document.getElementById('animate-toggle').addEventListener('click', function() {
+        isAnimating = !isAnimating;
+        this.textContent = isAnimating ? '⏸️ Пауза' : '▶️ Анимация';
+    });
+}
+
+// Анимация
+function animate() {
+    animationId = requestAnimationFrame(animate);
+    controls.update();
+    
+    if (isAnimating) {
+        const daySlider = document.getElementById('day-slider');
+        let newDay = parseInt(daySlider.value) + 0.1;
+        if (newDay > 365) newDay = 1;
+        daySlider.value = newDay;
+        document.getElementById('day-value').textContent = Math.round(newDay);
+        updateScene();
+    }
+    
+    renderer.render(scene, camera);
+}
+
+// Обработка изменения размера окна
+window.addEventListener('resize', function() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// Запуск при загрузке
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
